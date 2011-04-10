@@ -25,7 +25,7 @@ sub new($) {
 		},
 	};
 
-	bless $self, $class;
+	return bless $self, $class;
 }
 
 sub symbol {
@@ -34,17 +34,17 @@ sub symbol {
 	die "symbol " . $object->label . " already exists" 
 		if (defined $self->{symbols}->{$object->label});
 
-	$self->{symbols}->{$object->label} = $object;
+	return $self->{symbols}->{$object->label} = $object;
 }
 
 sub label {
 	my $self = shift;
-	$self->{label};
+	return $self->{label};
 }
 
 sub list {
 	my $self = shift;
-	keys %{$self->{symbols}};
+	return keys %{$self->{symbols}};
 }
 
 sub lookup {
@@ -58,11 +58,9 @@ sub lookup {
 		$self->{symbols}->{$symbol}->lookup(@tail);
 	};
 
-	if ($@) {
-		die $self->{label} . '/' . $@;
-	} 
+	die $self->{label} . '/' . $@ if $@;
 
-	$res;
+	return $res;
 }
 
 sub dispatch() {
@@ -71,7 +69,7 @@ sub dispatch() {
 	die "unknown action '$action'" 
 		unless defined $self->{operators}->{$action};
 
-	$self->{operators}->{$action}(@args);
+	return $self->{operators}->{$action}(@args);
 }
 
 package factory;
