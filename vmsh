@@ -1,0 +1,232 @@
+#!/usr/bin/perl
+# This program is Copyright 2011 Andreas Fett.
+# All rights reserved. This program is free software; you may redistribute it
+# and/or modify it under the same terms as Perl itself.
+
+use warnings;
+use strict;
+
+use Data::Dumper;
+
+package command;
+
+sub new($) {
+	my ($class, $label) = @_;
+	my $self;
+	$self = {
+		symbols => {},
+		label => $label,
+		operators => {
+			destroy => sub { 
+				die "$label: I cannot be destroyed"; 
+			},
+			label => sub { return $label; },
+			list => sub { return $self->list; }
+		},
+	};
+
+	bless $self, $class;
+}
+
+sub symbol {
+	my ($self, $object) = @_;
+
+	die "symbol " . $object->label . " already exists" 
+		if (defined $self->{symbols}->{$object->label});
+
+	$self->{symbols}->{$object->label} = $object;
+}
+
+sub label {
+	my $self = shift;
+	$self->{label};
+}
+
+sub list {
+	my $self = shift;
+	keys %{$self->{symbols}};
+}
+
+sub lookup {
+	my ($self, $symbol, @tail) = @_;
+	return $self if (!defined $symbol);
+
+	die "$self->{label} no such symbol: $symbol"
+		unless defined $self->{symbols}->{$symbol};
+
+	my $res = eval {
+		$self->{symbols}->{$symbol}->lookup(@tail);
+	};
+
+	if ($@) {
+		die $self->{label} . '/' . $@;
+	} 
+
+	$res;
+}
+
+sub dispatch() {
+	my ($self, $action, @args) = @_;
+
+	die "unknown action '$action'" 
+		unless defined $self->{operators}->{$action};
+
+	$self->{operators}->{$action}(@args);
+}
+
+package factory;
+our @ISA = qw(command);
+
+sub new($) {
+	my ($class, $label) = @_;
+	my $self = $class->SUPER::new($label);
+	$self->{id} = 0;
+	$self->{operators}->{create} = sub {
+		my $id = $self->generate_id($_[0]);
+		$self->symbol($self->class_name()->new($id));
+	};
+	return $self;
+}
+
+sub generate_id {
+	my ($self, $id) = @_;
+
+	if (defined $id) {
+		if ($id =~ /^(0|[1-9]\d+)$/ && $id >= $self->{id}) {
+			$self->{id} = $id + 1;
+		}
+		return $id;
+	} 
+
+	return $id = $self->{id}++;
+}
+
+package endpoint;
+
+sub connect {
+	my ($self, $other) = @_;
+	die $other->{label} . " is of same type: " . ref $other
+		if (ref $self eq ref $other);
+}
+
+package nic;
+our @ISA = qw(command endpoint);
+
+package nic_factory;
+our @ISA = qw(factory);
+
+sub class_name() { 'nic' }
+
+package vm;
+our @ISA = qw(command);
+
+sub new($) {
+	my ($class, $label) = @_;
+	my $self = $class->SUPER::new($label);
+	$self->symbol(new nic_factory 'nic');
+	return $self;
+}
+
+package port;
+our @ISA = qw(command endpoint);
+
+sub new($) {
+	my ($class, $label) = @_;
+	my $self = $class->SUPER::new($label);
+	return $self;
+}
+
+package switch;
+our @ISA = qw(command);
+
+sub new($) {
+	my ($class, $label) = @_;
+	my $self = $class->SUPER::new($label);
+	$self->symbol(new port_factory 'port');
+	return $self;
+}
+
+package wire;
+our @ISA = qw(command);
+
+sub new($) {
+	my ($class, $label) = @_;
+	my $self = $class->SUPER::new($label);
+	$self->{operators}->{connect} = sub {
+		my @endpoints = map {
+			die "invalid endpoint $_"
+				unless defined $self->{symbols}->{$_};
+
+			my $endpoint = $self->{symbols}->{$_};
+
+			die "cannot connect to a ". ref $endpoint 
+				unless $endpoint->can('connect');
+
+			$endpoint;
+		} @_;
+
+		die "need two endpoints, have:".(scalar @endpoints)
+			unless @endpoints == 2;
+
+		$endpoints[0]->connect($endpoints[1]);
+		$endpoints[1]->connect($endpoints[0]);
+
+		$self->{endpoints} = \@endpoints;
+	};
+	return $self;
+}
+
+package vm_factory;
+our @ISA = qw(factory);
+
+sub class_name() { 'vm' }
+
+package switch_factory;
+our @ISA = qw(factory);
+
+sub class_name() { 'switch' }
+
+package wire_factory;
+our @ISA = qw(factory);
+
+sub class_name() { 'wire' }
+
+package port_factory;
+our @ISA = qw(factory);
+
+sub class_name() { 'port' }
+
+package vmsh;
+our @ISA = qw(command);
+
+sub new($) {
+	my ($class, $label) = @_;
+	my $self = $class->SUPER::new($label);
+	$self->symbol(new vm_factory 'vm');
+	$self->symbol(new switch_factory 'switch');
+	$self->symbol(new wire_factory 'wire');
+	return $self;
+}
+
+sub resolve {
+	my ($self, $path) = @_;
+	return $self->lookup(split '/', $path);
+}
+
+package vmsh_factory;
+our @ISA = qw(factory);
+
+sub class_name() { 'vmsh' }
+
+package main;
+
+my $f = new vmsh_factory 'vmsh';
+my $sh = $f->dispatch('create');
+
+$sh->resolve('vm')->dispatch('create');
+$sh->resolve('vm')->dispatch('create');
+$sh->resolve('vm/1/nic')->dispatch('create', 'eth0');
+$sh->resolve('vm/1/nic')->dispatch('create', 'eth1');
+
+print Dumper($sh->resolve('vm/1/nic')->dispatch('list'));
+

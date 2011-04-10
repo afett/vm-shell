@@ -1,0 +1,24 @@
+vm create [label]
+vm create [label]
+
+switch create [label]
+switch create [label]
+
+vm/router/nic create [label]
+vm/router/nic create [label]
+
+switch/lan/port create [label]
+switch/lan/port create [label]
+
+wire create [label]
+
+wire/foo connect vm/router/nic/0 [...]
+wire/foo connect switch/lan/port/0
+
+vm/router/nic/0/mac create [mac]
+vm/router/nic/0 destroy
+vm/router/nic/0 label xxx
+
+vm/router/nic list
+vm/router/nic/0/ list
+vm/router/nic/0/ list
