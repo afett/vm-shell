@@ -218,13 +218,31 @@ sub class_name() { 'vmsh' }
 
 package main;
 
+sub prompt {
+	print "ok> ";
+}
+
 my $f = new vmsh_factory 'vmsh';
 my $sh = $f->dispatch('create');
 
-$sh->resolve('vm')->dispatch('create');
-$sh->resolve('vm')->dispatch('create');
-$sh->resolve('vm/1/nic')->dispatch('create', 'eth0');
-$sh->resolve('vm/1/nic')->dispatch('create', 'eth1');
+prompt;
+while (<STDIN>) {
+	chop;
 
-print Dumper($sh->resolve('vm/1/nic')->dispatch('list'));
+	my ($path, @op) = split ' ', $_;
+
+	eval {
+		for my $r ($sh->resolve($path)->dispatch(@op)) {
+			print "$r\n";
+		}
+	};
+
+	if ($@) {
+		print STDERR "$@", "\n";
+	}
+
+	prompt;
+}
+
+1;
 
