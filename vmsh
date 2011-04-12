@@ -18,7 +18,7 @@ sub new($) {
 		label => $label,
 		operators => {
 			destroy => sub { 
-				die "$label: I cannot be destroyed"; 
+				die "$label: I cannot be destroyed";
 			},
 			label => sub { return $label; },
 			list => sub { return $self->list; }
@@ -31,7 +31,7 @@ sub new($) {
 sub symbol {
 	my ($self, $object) = @_;
 
-	die "symbol " . $object->label . " already exists" 
+	die "symbol " . $object->label . " already exists"
 		if (defined $self->{symbols}->{$object->label});
 
 	return $self->{symbols}->{$object->label} = $object;
@@ -157,7 +157,7 @@ sub new($) {
 
 			my $endpoint = $self->{symbols}->{$_};
 
-			die "cannot connect to a ". ref $endpoint 
+			die "cannot connect to a ". ref $endpoint
 				unless $endpoint->can('connect');
 
 			$endpoint;
