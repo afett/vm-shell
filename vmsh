@@ -66,7 +66,10 @@ sub lookup {
 sub dispatch() {
 	my ($self, $action, @args) = @_;
 
-	die "unknown action '$action'" 
+	die "$self->{label}: operator missing"
+		unless defined $action;
+
+	die "$self->{label}: unknown operator '$action'"
 		unless defined $self->{operators}->{$action};
 
 	return $self->{operators}->{$action}(@args);
@@ -89,6 +92,8 @@ sub new($) {
 sub generate_id {
 	my ($self, $id) = @_;
 
+	# if it looks numeric and is greater than our
+	# current id value start with the one after that.
 	if (defined $id) {
 		if ($id =~ /^(0|[1-9]\d+)$/ && $id >= $self->{id}) {
 			$self->{id} = $id + 1;
@@ -211,10 +216,12 @@ sub resolve {
 	return $self->lookup(split '/', $path);
 }
 
-package vmsh_factory;
-our @ISA = qw(factory);
+sub eval {
+	my ($self, $cmd) = @_;
+	my ($path, @args) = split ' ', $cmd;
 
-sub class_name() { 'vmsh' }
+	$self->resolve($path)->dispatch(@args);
+}
 
 package main;
 
@@ -222,17 +229,14 @@ sub prompt {
 	print "ok> ";
 }
 
-my $f = new vmsh_factory 'vmsh';
-my $sh = $f->dispatch('create');
+my $sh = new vmsh 'vmsh';
 
 prompt;
 while (<STDIN>) {
 	chop;
 
-	my ($path, @op) = split ' ', $_;
-
 	eval {
-		for my $r ($sh->resolve($path)->dispatch(@op)) {
+		for my $r ($sh->eval($_)) {
 			print "$r\n";
 		}
 	};
