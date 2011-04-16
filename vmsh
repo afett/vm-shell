@@ -208,6 +208,9 @@ sub new($) {
 	$self->symbol(new factory 'vm');
 	$self->symbol(new factory 'switch');
 	$self->symbol(new factory 'wire');
+	$self->{operators}->{quit} = sub {
+		exit 0;
+	};
 	return $self;
 }
 
@@ -251,7 +254,7 @@ while (<STDIN>) {
 		if (blessed $@ && $@->isa('error')) {
 			print STDERR $@->{msg}, "\n";
 		} else {
-			print STDERR "internal error: $@", "\n";
+			die "internal error: $@", "\n";
 		}
 	}
 
