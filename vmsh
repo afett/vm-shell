@@ -7,6 +7,22 @@ use warnings;
 use strict;
 
 use Data::Dumper;
+use Scalar::Util qw(blessed);
+
+
+package error;
+
+sub new {
+	my ($class, $msg, $help) = @_;
+	my $self = {
+		msg => $msg,
+	};
+	return bless $self, $class;
+}
+
+sub error::throw(@) {
+	die (new error @_);
+}
 
 package command;
 
@@ -18,7 +34,7 @@ sub new($) {
 		label => $label,
 		operators => {
 			destroy => sub { 
-				die "$label: I cannot be destroyed";
+				error::throw "$label: I cannot be destroyed";
 			},
 			label => sub { return $label; },
 			list => sub { return $self->list; }
@@ -31,7 +47,7 @@ sub new($) {
 sub symbol {
 	my ($self, $object) = @_;
 
-	die "symbol " . $object->label . " already exists"
+	error::throw "symbol " . $object->label . " already exists"
 		if (defined $self->{symbols}->{$object->label});
 
 	return $self->{symbols}->{$object->label} = $object;
@@ -51,14 +67,14 @@ sub lookup {
 	my ($self, $symbol, @tail) = @_;
 	return $self if (!defined $symbol);
 
-	die "$self->{label} no such symbol: $symbol"
+	error::throw "$self->{label} no such symbol: $symbol"
 		unless defined $self->{symbols}->{$symbol};
 
 	my $res = eval {
 		$self->{symbols}->{$symbol}->lookup(@tail);
 	};
 
-	die $self->{label} . '/' . $@ if $@;
+	error::throw $self->{label} . '/' . $@ if $@;
 
 	return $res;
 }
@@ -66,13 +82,18 @@ sub lookup {
 sub dispatch() {
 	my ($self, $action, @args) = @_;
 
-	die "$self->{label}: operator missing"
+	error::throw "$self->{label}: operator missing"
 		unless defined $action;
 
-	die "$self->{label}: unknown operator '$action'"
+	error::throw "$self->{label}: unknown operator '$action'"
 		unless defined $self->{operators}->{$action};
 
 	return $self->{operators}->{$action}(@args);
+}
+
+sub print {
+	my $self = shift;
+	return ref $self . '/' . $self->label();
 }
 
 package factory;
@@ -108,7 +129,7 @@ package endpoint;
 
 sub connect {
 	my ($self, $other) = @_;
-	die $other->{label} . " is of same type: " . ref $other
+	error::throw $other->{label} . " is of same type: " . ref $other
 		if (ref $self eq ref $other);
 }
 
@@ -157,18 +178,18 @@ sub new($) {
 	my $self = $class->SUPER::new($label);
 	$self->{operators}->{connect} = sub {
 		my @endpoints = map {
-			die "invalid endpoint $_"
+			error::throw "invalid endpoint $_"
 				unless defined $self->{symbols}->{$_};
 
 			my $endpoint = $self->{symbols}->{$_};
 
-			die "cannot connect to a ". ref $endpoint
+			error::throw "cannot connect to a ". ref $endpoint
 				unless $endpoint->can('connect');
 
 			$endpoint;
 		} @_;
 
-		die "need two endpoints, have:".(scalar @endpoints)
+		error::throw "need two endpoints, have:".(scalar @endpoints)
 			unless @endpoints == 2;
 
 		$endpoints[0]->connect($endpoints[1]);
@@ -220,6 +241,10 @@ sub eval {
 	my ($self, $cmd) = @_;
 	my ($path, @args) = split ' ', $cmd;
 
+	if (exists $self->{operators}->{$path}) {
+		return $self->dispatch($path, @args);
+	}
+
 	$self->resolve($path)->dispatch(@args);
 }
 
@@ -237,12 +262,16 @@ while (<STDIN>) {
 
 	eval {
 		for my $r ($sh->eval($_)) {
-			print "$r\n";
+			print $r, "\n";
 		}
 	};
 
 	if ($@) {
-		print STDERR "$@", "\n";
+		if (blessed $@ && $@->isa('error')) {
+			print STDERR $@->{msg}, "\n";
+		} else {
+			print STDERR "internal error: $@", "\n";
+		}
 	}
 
 	prompt;
