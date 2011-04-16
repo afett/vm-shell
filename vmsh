@@ -6,9 +6,7 @@
 use warnings;
 use strict;
 
-use Data::Dumper;
 use Scalar::Util qw(blessed);
-
 
 package error;
 
@@ -258,13 +256,13 @@ my $sh = new vmsh 'vmsh';
 
 prompt;
 while (<STDIN>) {
-	chop;
+	s/^\s+//; s/\s+$//;
 
 	eval {
 		for my $r ($sh->eval($_)) {
 			print $r, "\n";
 		}
-	};
+	} if $_;
 
 	if ($@) {
 		if (blessed $@ && $@->isa('error')) {
