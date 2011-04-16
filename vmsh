@@ -97,10 +97,16 @@ sub print {
 package factory;
 our @ISA = qw(command);
 
+sub class_name {
+	my $self = shift;
+	return $self->{class};
+}
+
 sub new($) {
 	my ($class, $label) = @_;
 	my $self = $class->SUPER::new($label);
 	$self->{id} = 0;
+	$self->{class} = $label;
 	$self->{operators}->{create} = sub {
 		my $id = $self->generate_id($_[0]);
 		$self->symbol($self->class_name()->new($id));
@@ -134,18 +140,13 @@ sub connect {
 package nic;
 our @ISA = qw(command endpoint);
 
-package nic_factory;
-our @ISA = qw(factory);
-
-sub class_name() { 'nic' }
-
 package vm;
 our @ISA = qw(command);
 
 sub new($) {
 	my ($class, $label) = @_;
 	my $self = $class->SUPER::new($label);
-	$self->symbol(new nic_factory 'nic');
+	$self->symbol(new factory 'nic');
 	return $self;
 }
 
@@ -164,7 +165,7 @@ our @ISA = qw(command);
 sub new($) {
 	my ($class, $label) = @_;
 	my $self = $class->SUPER::new($label);
-	$self->symbol(new port_factory 'port');
+	$self->symbol(new factory 'port');
 	return $self;
 }
 
@@ -198,35 +199,15 @@ sub new($) {
 	return $self;
 }
 
-package vm_factory;
-our @ISA = qw(factory);
-
-sub class_name() { 'vm' }
-
-package switch_factory;
-our @ISA = qw(factory);
-
-sub class_name() { 'switch' }
-
-package wire_factory;
-our @ISA = qw(factory);
-
-sub class_name() { 'wire' }
-
-package port_factory;
-our @ISA = qw(factory);
-
-sub class_name() { 'port' }
-
 package vmsh;
 our @ISA = qw(command);
 
 sub new($) {
 	my ($class, $label) = @_;
 	my $self = $class->SUPER::new($label);
-	$self->symbol(new vm_factory 'vm');
-	$self->symbol(new switch_factory 'switch');
-	$self->symbol(new wire_factory 'wire');
+	$self->symbol(new factory 'vm');
+	$self->symbol(new factory 'switch');
+	$self->symbol(new factory 'wire');
 	return $self;
 }
 
