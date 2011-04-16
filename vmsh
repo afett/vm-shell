@@ -258,6 +258,8 @@ prompt;
 while (<STDIN>) {
 	s/^\s+//; s/\s+$//;
 
+	undef $@;
+
 	eval {
 		for my $r ($sh->eval($_)) {
 			print $r, "\n";
