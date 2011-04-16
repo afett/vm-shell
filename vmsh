@@ -15,7 +15,7 @@ sub new {
 	my $self = {
 		msg => $msg,
 	};
-	return bless $self, $class;
+	bless $self, $class;
 }
 
 sub error::throw(@) {
@@ -39,7 +39,7 @@ sub new($) {
 		},
 	};
 
-	return bless $self, $class;
+	bless $self, $class;
 }
 
 sub symbol {
@@ -48,17 +48,14 @@ sub symbol {
 	error::throw "symbol " . $object->label . " already exists"
 		if (defined $self->{symbols}->{$object->label});
 
-	return $self->{symbols}->{$object->label} = $object;
+	$self->{symbols}->{$object->label} = $object;
 }
 
-sub label {
-	my $self = shift;
-	return $self->{label};
-}
+sub label { $_[0]->{label}; }
 
 sub list {
 	my $self = shift;
-	return keys %{$self->{symbols}};
+	keys %{$self->{symbols}};
 }
 
 sub lookup {
@@ -74,7 +71,7 @@ sub lookup {
 
 	error::throw $self->{label} . '/' . $@ if $@;
 
-	return $res;
+	$res;
 }
 
 sub dispatch() {
@@ -86,21 +83,18 @@ sub dispatch() {
 	error::throw "$self->{label}: unknown operator '$action'"
 		unless defined $self->{operators}->{$action};
 
-	return $self->{operators}->{$action}(@args);
+	$self->{operators}->{$action}(@args);
 }
 
 sub print {
 	my $self = shift;
-	return ref $self . '/' . $self->label();
+	ref $self . '/' . $self->label();
 }
 
 package factory;
 our @ISA = qw(command);
 
-sub class_name {
-	my $self = shift;
-	return $self->{class};
-}
+sub class_name { $_[0]->{class}; }
 
 sub new($) {
 	my ($class, $label) = @_;
@@ -111,7 +105,7 @@ sub new($) {
 		my $id = $self->generate_id($_[0]);
 		$self->symbol($self->class_name()->new($id));
 	};
-	return $self;
+	bless $self, $class;
 }
 
 sub generate_id {
@@ -126,7 +120,7 @@ sub generate_id {
 		return $id;
 	}
 
-	return $id = $self->{id}++;
+	$id = $self->{id}++;
 }
 
 package endpoint;
@@ -147,7 +141,7 @@ sub new($) {
 	my ($class, $label) = @_;
 	my $self = $class->SUPER::new($label);
 	$self->symbol(new factory 'nic');
-	return $self;
+	bless $self, $class;
 }
 
 package port;
@@ -156,7 +150,7 @@ our @ISA = qw(command endpoint);
 sub new($) {
 	my ($class, $label) = @_;
 	my $self = $class->SUPER::new($label);
-	return $self;
+	bless $self, $class;
 }
 
 package switch;
@@ -166,7 +160,7 @@ sub new($) {
 	my ($class, $label) = @_;
 	my $self = $class->SUPER::new($label);
 	$self->symbol(new factory 'port');
-	return $self;
+	bless $self, $class;
 }
 
 package wire;
@@ -196,7 +190,7 @@ sub new($) {
 
 		$self->{endpoints} = \@endpoints;
 	};
-	return $self;
+	bless $self, $class;
 }
 
 package vmsh;
@@ -211,12 +205,13 @@ sub new($) {
 	$self->{operators}->{quit} = sub {
 		exit 0;
 	};
-	return $self;
+
+	bless $self, $class;
 }
 
 sub resolve {
 	my ($self, $path) = @_;
-	return $self->lookup(split '/', $path);
+	$self->lookup(split '/', $path);
 }
 
 sub eval {
