@@ -31,7 +31,7 @@ sub new($) {
 		symbols => {},
 		label => $label,
 		operators => {
-			destroy => sub { 
+			destroy => sub {
 				error::throw "$label: I cannot be destroyed";
 			},
 			label => sub { return $label; },
@@ -118,7 +118,7 @@ sub generate_id {
 			$self->{id} = $id + 1;
 		}
 		return $id;
-	} 
+	}
 
 	return $id = $self->{id}++;
 }
