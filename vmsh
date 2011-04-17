@@ -24,7 +24,7 @@ sub error::throw(@) {
 
 package command;
 
-sub new($) {
+sub new {
 	my ($class, $label) = @_;
 	my $self;
 	$self = {
@@ -34,8 +34,8 @@ sub new($) {
 			destroy => sub {
 				error::throw "$label: I cannot be destroyed";
 			},
-			label => sub { return $label; },
-			list => sub { return $self->list; }
+			label => sub { $label; },
+			list => sub { $self->list; }
 		},
 	};
 
@@ -74,7 +74,7 @@ sub lookup {
 	$res;
 }
 
-sub dispatch() {
+sub dispatch {
 	my ($self, $action, @args) = @_;
 
 	error::throw "$self->{label}: operator missing"
@@ -96,7 +96,7 @@ our @ISA = qw(command);
 
 sub class_name { $_[0]->{class}; }
 
-sub new($) {
+sub new {
 	my ($class, $label) = @_;
 	my $self = $class->SUPER::new($label);
 	$self->{id} = 0;
@@ -137,7 +137,7 @@ our @ISA = qw(command endpoint);
 package vm;
 our @ISA = qw(command);
 
-sub new($) {
+sub new {
 	my ($class, $label) = @_;
 	my $self = $class->SUPER::new($label);
 	$self->symbol(new factory 'nic');
@@ -147,7 +147,7 @@ sub new($) {
 package port;
 our @ISA = qw(command endpoint);
 
-sub new($) {
+sub new {
 	my ($class, $label) = @_;
 	my $self = $class->SUPER::new($label);
 	bless $self, $class;
@@ -156,7 +156,7 @@ sub new($) {
 package switch;
 our @ISA = qw(command);
 
-sub new($) {
+sub new {
 	my ($class, $label) = @_;
 	my $self = $class->SUPER::new($label);
 	$self->symbol(new factory 'port');
@@ -166,7 +166,7 @@ sub new($) {
 package wire;
 our @ISA = qw(command);
 
-sub new($) {
+sub new {
 	my ($class, $label) = @_;
 	my $self = $class->SUPER::new($label);
 	$self->{operators}->{connect} = sub {
@@ -196,7 +196,7 @@ sub new($) {
 package vmsh;
 our @ISA = qw(command);
 
-sub new($) {
+sub new {
 	my ($class, $label) = @_;
 	my $self = $class->SUPER::new($label);
 	$self->symbol(new factory 'vm');
