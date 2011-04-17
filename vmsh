@@ -25,17 +25,19 @@ sub error::throw {
 package command;
 
 sub new {
-	my ($class, $label) = @_;
+	my ($class, $label, $parent) = @_;
 	my $self;
 	$self = {
 		symbols => {},
 		label => $label,
+		parent => $parent,
+		state => 'CONFIG',
 		operators => {
 			destroy => sub {
 				error::throw "$label: I cannot be destroyed";
 			},
 			label => sub { $label; },
-			list => sub { $self->list; }
+			list => sub { $self->list(); },
 		},
 	};
 
@@ -49,13 +51,14 @@ sub symbol {
 		if (defined $self->{symbols}->{$object->label});
 
 	$self->{symbols}->{$object->label} = $object;
+	return $object;
 }
 
 sub label { $_[0]->{label}; }
 
 sub list {
 	my $self = shift;
-	keys %{$self->{symbols}};
+	values %{$self->{symbols}};
 }
 
 sub lookup {
@@ -74,6 +77,11 @@ sub lookup {
 	$res;
 }
 
+sub resolve {
+	my ($self, $path) = @_;
+	$self->lookup(split '/', $path);
+}
+
 sub dispatch {
 	my ($self, $action, @args) = @_;
 
@@ -84,11 +92,6 @@ sub dispatch {
 		unless defined $self->{operators}->{$action};
 
 	$self->{operators}->{$action}(@args);
-}
-
-sub print {
-	my $self = shift;
-	ref $self . '/' . $self->label();
 }
 
 package factory;
@@ -102,8 +105,8 @@ sub new {
 	$self->{id} = 0;
 	$self->{class} = $label;
 	$self->{operators}->{create} = sub {
-		my $id = $self->generate_id($_[0]);
-		$self->symbol($self->class_name()->new($id));
+		my $id = $self->generate_id( shift );
+		return $self->symbol($self->class_name()->new($id, $self, @_));
 	};
 	bless $self, $class;
 }
@@ -123,19 +126,65 @@ sub generate_id {
 	$id = $self->{id}++;
 }
 
+sub display {
+	return $_[0]->{label};
+}
+
 package endpoint;
 
 sub connect {
 	my ($self, $other) = @_;
 	error::throw $other->{label} . " is of same type: " . ref $other
 		if (ref $self eq ref $other);
+
+	$self->{peer} = $other;
+}
+
+sub disconnect {
+	my $self = $_[0];
+	$self->{peer} = undef;
 }
 
 package nic;
 our @ISA = qw(command endpoint);
 
+sub new {
+	my ($class, $label, $parent, $mac) = @_;
+	my $self = $class->SUPER::new($label);
+
+	$mac = '52:54:00:0d:ae:36'
+		unless defined $mac;
+	$self->{mac} = $mac;
+
+	bless $self, $class;
+}
+
+sub display {
+	my $self = $_[0];
+	'nic/' . $self->{label} . ': ' . $self->{mac};
+}
+
 package disk;
 our @ISA = qw(command);
+
+sub new {
+	my ($class, $label, $parent, $file) = @_;
+	my $self = $class->SUPER::new($label);
+
+	error::throw "can't create disk: file is missing."
+		unless defined $file;
+
+	error::throw "can't create disk: unable to read '$file'."
+		unless -r $file;
+
+	$self->{file} = $file;
+	bless $self, $class;
+}
+
+sub display {
+	my $self = $_[0];
+	'disk/' . $self->{label} . ': ' . $self->{file};
+}
 
 package vm;
 our @ISA = qw(command);
@@ -146,6 +195,11 @@ sub new {
 	$self->symbol(new factory 'nic');
 	$self->symbol(new factory 'disk');
 	bless $self, $class;
+}
+
+sub display {
+	my $self = $_[0];
+	'vm/' . $self->{label};
 }
 
 package port;
@@ -213,10 +267,6 @@ sub new {
 	bless $self, $class;
 }
 
-sub resolve {
-	my ($self, $path) = @_;
-	$self->lookup(split '/', $path);
-}
 
 sub eval {
 	my ($self, $cmd) = @_;
@@ -245,7 +295,11 @@ while (<STDIN>) {
 
 	eval {
 		for my $r ($sh->eval($_)) {
-			print $r, "\n";
+			if (blessed $r && $r->can('display')) {
+				print STDOUT $r->display(), "\n";
+			} else {
+				print STDOUT $r, "\n";
+			}
 		}
 	} if $_;
 
