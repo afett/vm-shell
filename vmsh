@@ -18,7 +18,7 @@ sub new {
 	bless $self, $class;
 }
 
-sub error::throw(@) {
+sub error::throw {
 	die (new error @_);
 }
 
@@ -134,6 +134,9 @@ sub connect {
 package nic;
 our @ISA = qw(command endpoint);
 
+package disk;
+our @ISA = qw(command);
+
 package vm;
 our @ISA = qw(command);
 
@@ -141,6 +144,7 @@ sub new {
 	my ($class, $label) = @_;
 	my $self = $class->SUPER::new($label);
 	$self->symbol(new factory 'nic');
+	$self->symbol(new factory 'disk');
 	bless $self, $class;
 }
 
